@@ -292,5 +292,31 @@ Examples: `show`, `display`, `count`, `write`
 
 
 
-
-
+                Partition Table 1               Partition Table 2               Partition Table 3
+              +---------------------+         +---------------------+         +---------------------+
+              |  Mumbai   20  India |         |  Mumbai   12  India |         |  Delhi  -20  India  |
+              |  Chennai  10  India |         |  Chennai 30  India |         |  Mumbai   25  India |
+              |  Delhi    57  India |         |  Chennai 50  India |         |                     |
+              +---------------------+         +---------------------+         +---------------------+
+                        |                               |                               |
+       df1 = df.filter("temp" < 50)       df1 = df.filter("temp" < 50)       df1 = df.filter("temp" < 50)
+                        |                               |                               |
+              +---------------------+         +---------------------+         +---------------------+
+              |  Mumbai   20  India |         |  Mumbai   12  India |         |  Delhi  -20  India  |
+              |  Chennai  10  India |         |  Chennai 30  India |         |  Mumbai   25  India |
+              +---------------------+         +---------------------+         +---------------------+
+                        |                               |                               |
+ df2 = df1.select("city", "temp")   df2 = df1.select("city", "temp")   df2 = df1.select("city", "temp")
+                        |                               |                               |
+              +------------------+              +------------------+              +------------------+
+              |  Mumbai   20     |              |  Mumbai   12     |              |  Delhi  -20      |
+              |  Chennai  10     |              |  Chennai 30      |              |  Mumbai   25     |
+              +------------------+              +------------------+              +------------------+
+                        \                               |                               /
+                         \___till above only narrow tranfromations happened____________/
+                                             |
+                             df3 = df2.orderBy("temp") wide tranformation starts
+                                             |
+                                    +------------------+
+                                    |   Final Output   |
+                                    +------------------+
