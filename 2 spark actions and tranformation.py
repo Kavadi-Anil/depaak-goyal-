@@ -287,3 +287,10 @@ Examples: `show`, `display`, `count`, `write`
 - When a **shuffle** happens (in wide transformations), **another stage** is created.
 
 ---
+
+
+
+
+
+
+
