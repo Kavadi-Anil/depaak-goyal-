@@ -12,7 +12,8 @@ To improve join performance:
 
 🔄 What is Shuffling in Spark?
 
-Shuffling is the process of redistributing data across different partitions in a Spark cluster so that related records are grouped together based on a specific key (like emp_id). 
+Shuffling is the process of redistributing data across different partitions in a Spark cluster 
+so that related records are grouped together based on a specific key (like emp_id). 
 It typically occurs during wide transformations such as join, groupBy, and distinct. 
 
 
@@ -20,7 +21,8 @@ It typically occurs during wide transformations such as join, groupBy, and disti
 💡 Why is Shuffling Important Before a Join?
 
 In Spark, data is divided into multiple partitions and distributed across executors. 
-When performing a join between two datasets (like employees and department), Spark must ensure that rows with the same join key (emp_id) are in the same partition. 
+When performing a join between two datasets (like employees and department), 
+Spark must ensure that rows with the same join key (emp_id) are in the same partition. 
 
 If shuffling is not done:
 - A row with emp_id = 101 in the employees table (Partition 1) might need to match with a row in the department table (Partition 2).
@@ -38,6 +40,9 @@ If shuffling is not done:
 Shuffling is critical before performing joins in Spark. 
 It ensures that matching keys are colocated in the same partition, enabling faster and more efficient join execution.
  
+                        broadcast join optimization
+============================
+
                          +-------------------------+
                          |     Driver Program      |
                          +-----------+-------------+
@@ -46,6 +51,13 @@ It ensures that matching keys are colocated in the same partition, enabling fast
                            +---------+---------+
                            |   Spark Execution   |
                            +---------+---------+
+                                     |
+                      +-------------------------------------------+
+                      |  Code Step: Manual Partitioning           |
+                      +-------------------------------------------+
+                      | employee_df.repartition(3, "emp_id")      |
+                      | department_df.repartition(3, "emp_id")    |
+                      +-------------------------------------------+
                                      |
                  +------------------+------------------+
                  |                  |                  |
@@ -69,6 +81,9 @@ It ensures that matching keys are colocated in the same partition, enabling fast
                      v             v              v
          +----------------------------------------------------------+
          |  hashPartition(emp_id) - Shuffling and Repartition Step  |
+         |                                                          |
+         |  employee_df.repartition(   "emp_id")                    |
+         |  department_df.repartition(   "emp_id")                  |
          +----------------------------------------------------------+
                       /                          \
                      /                            \
@@ -88,8 +103,7 @@ It ensures that matching keys are colocated in the same partition, enabling fast
         +--------------------------+     +--------------------------+
 
 
-
-
+       now this Repartitioned Box 1 and 2   are ready for join operation which will be optimised
 
 broadcast join optimization
 ============================
@@ -106,6 +120,9 @@ This works well, but if **Table T1 is significantly larger than Table T2**, or *
 If one table (like department) is small, Spark can broadcast it to all executors.
 This avoids shuffling the large table (employee), allowing the join to be done locally and much faster.
 
+             broadcast join optimization
+============================
+
                          +-------------------------+
                          |     Driver Program      |
                          +-----------+-------------+
@@ -115,27 +132,39 @@ This avoids shuffling the large table (employee), allowing the join to be done l
                            |   Spark Execution   |
                            +---------+---------+
                                      |
-                 +------------------+------------------+
-                 |                  |                  |
-        +--------+--------+    +-------+--------+  +-------+--------+
-        |   Partition 1    |   |   Partition 2   | |   Partition 3   |
-        +------------------+    +-----------------+ +-----------------+
-        | -- employee --    |  | -- employee --  | | -- employee --  |
-        | 1     | Anil       | | 350001 | Sneha |  | 700001 | Rani   |
-        | 2     | Rohit      | | 350002 | Mohit |  | 700002 | Kapil  |
-        | 3     | Geeta      | | 350003 | Ravi  |  | 700003 | Neha   |
-        +------------------+ +-----------------+   +-----------------+
+                      +-------------------------------------------+
+                      |  Code Step: Manual Partitioning           |
+                      +-------------------------------------------+
+                      | employee_df.repartition(3, "emp_id")      |
+                      | department_df.repartition(3, "emp_id")    |
+                      +-------------------------------------------+
+                                     |
+                 +------------------+------------------+------------------+
+                 |                  |                  |                  |
+        +--------+--------+   +-------+--------+   +-------+--------+     
+        |   Partition 1    |   |   Partition 2   |   |   Partition 3   |     
+        +------------------+   +-----------------+   +-----------------+     
+        | -- employee --    |  | -- employee --  |   | -- employee --  |
+        | 1     | Anil       | | 350001 | Sneha  |   | 700001 | Rani   |
+        | 2     | Rohit      | | 350002 | Mohit  |   | 700002 | Kapil  |
+        | 3     | Geeta      | | 350003 | Ravi   |   | 700003 | Neha   |
+        +------------------+ +------------------+   +------------------+
 
-        | -- department --  | | -- department --| | -- department --|
-        | 2     | IT        | | 3     | Admin   | | 4     | Sales   |
-        | 5     | HR        | | 6     | Finance | | 7     | Support |
-        +------------------+ +-----------------+ +-----------------+
+        | -- department --  | | -- department --|   | -- department --|
+        | 2     | IT        | | 3     | Admin   |   | 4     | Sales   |
+        | 5     | HR        | | 6     | Finance |   | 7     | Support |
+        +------------------+ +------------------+   +------------------+
 
                            ↓ broadcast join
-         +-----------------------------------------------+
-         |          department table is broadcasted      |
-         |      to all executors for local join usage     |
-         +-----------------------------------------------+
+         +------------------------------------------------------------+
+         |  department table is broadcasted to all executors          |
+         |  for local join usage                                      |
+         |                                                            |
+         |  # PySpark code                                           |
+         |  result = employee_df.join(                                |
+         |      broadcast(department_df), on="emp_id", how="inner"    |
+         |  )                                                         |
+         +------------------------------------------------------------+
 
                       /                          \
                      /                            \
@@ -157,6 +186,8 @@ This avoids shuffling the large table (employee), allowing the join to be done l
         | 7     | Support             |   | 7     | Support             |
         +-----------------------------+   +-----------------------------+
 
+
 📌 In a broadcast join, the small table (department) is replicated and sent to all executors. 
 This avoids shuffling the large table (employee). Each executor performs the join locally, 
 processing its own portion of the employee table against the full department table.
+ 
