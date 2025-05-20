@@ -348,6 +348,48 @@ Examples: `show`, `display`, `count`, `write`
 
 
 
+Narrow and Wide Transformation – Diagram Representation
+=========================================================
+
+📄 Table Name: temperature
+
+| city     | temp | country |
+|----------|------|---------|
+| Mumbai   | 20   | India   |
+| Chennai  | 10   | India   |
+| Delhi    | 57   | India   |
+| Mumbai   | 12   | India   |
+| Chennai  | 30   | India   |
+| Chennai  | 50   | India   |
+| Delhi    | -20  | India   |
+| Mumbai   | 25   | India   |
+
+🧪 DataFrame Queries and Transformation Type:
+--------------------------------------------
+
+1. Narrow Transformation:
+--------------------------
+✅ These do NOT cause a shuffle. They operate within the same partition.
+
+df1 = df.filter("temp < 50")               # Narrow: filters rows in place
+df2 = df1.select("city", "temp")           # Narrow: selects columns without moving data
+
+2. Wide Transformation:
+------------------------
+⚠️ These DO cause a shuffle. They require moving data between partitions.
+
+df3 = df2.orderBy("temp")                  # Wide: requires global sorting, triggers shuffle
+
+📝 Summary:
+----------
+- Narrow transformations: filter(), select()
+- Wide transformations: orderBy(), groupBy(), join(), distinct()
+
+Only when orderBy("temp") is called, a shuffle happens across partitions — making it a wide transformation.
+
+
+------------------ DIAGRAM BELOW ------------------
+
                 Partition Table 1               Partition Table 2               Partition Table 3
               +---------------------+         +---------------------+         +---------------------+
               |  Mumbai   20  India |         |  Mumbai   12  India |         |  Delhi  -20  India  |
@@ -369,10 +411,17 @@ Examples: `show`, `display`, `count`, `write`
               |  Chennai  10     |              |  Chennai 30      |              |  Mumbai   25     |
               +------------------+              +------------------+              +------------------+
                         \                               |                               /
-                         \___till above only narrow tranfromations happened____________/
+                         \___till above only narrow transformations happened____________/
                                              |
-                             df3 = df2.orderBy("temp") wide tranformation starts
+                             df3 = df2.orderBy("temp")  → wide transformation starts
                                              |
-                                    +------------------+
-                                    |   Final Output   |
-                                    +------------------+
+                                    +----------------------------+
+                                    |        Final Output        |
+                                    +----------------------------+
+                                    |  Delhi   -20               |
+                                    |  Chennai 10                |
+                                    |  Mumbai  12                |
+                                    |  Mumbai  20                |
+                                    |  Mumbai  25                |
+                                    |  Chennai 30                |
+                                    +----------------------------+
