@@ -100,7 +100,34 @@ Transformations are **lazy**, actions **trigger execution**.
 - Examples: `filter()`, `map()`
 - Operate **within a single partition**
 - **No data shuffling**
-- Fast, parallel, efficient
+- Fast, parallel, efficient 
+
+Narrow Transformation
+======================
+
+Each input partition contributes to only one output partition.
+No shuffle occurs between nodes.
+
+Example: map(), filter(), sortWithinPartitions()
+
++-------------+       +-------------+
+| Partition 1 | ----> | Partition 1 |
++-------------+       +-------------+
+
++-------------+       +-------------+
+| Partition 2 | ----> | Partition 2 |
++-------------+       +-------------+
+
++-------------+       +-------------+
+| Partition 3 | ----> | Partition 3 |
++-------------+       +-------------+
+
+✅ Fast and efficient — no data movement across the cluster.
+
+
+
+
+  
 
 ### 2. **Wide Transformations**
 - Examples: `groupBy()`, `orderBy()`, `join()`
@@ -109,6 +136,35 @@ Transformations are **lazy**, actions **trigger execution**.
 - Slower due to **inter-partition dependency**
 
 ### ⚠️ Wide transformations should be minimized for performance.
+
+
+
+Wide Transformation
+====================
+
+Each input partition can contribute to multiple output partitions.
+Spark must **shuffle** data between executors.
+
+Example: groupByKey(), join(), distinct(), repartition()
+
++-------------+       +-------------+
+| Partition 1 | --->  | Partition A |
++-------------+     / +-------------+
+                    /
++-------------+    /  +-------------+
+| Partition 2 | --+--> | Partition B |
++-------------+    \  +-------------+
+                    \
++-------------+     \ +-------------+
+| Partition 3 | --->  | Partition C |
++-------------+       +-------------+
+
+⚠️ Involves shuffling → network + disk I/O → more expensive
+
+
+
+
+  
 
 ---
 
