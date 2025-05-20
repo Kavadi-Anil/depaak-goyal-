@@ -1,0 +1,36 @@
+Data Warehouse (DW)
+====================
+- Used for analytics and reporting (OLAP) from transactional systems (OLTP).
+- Only supports **structured data**.
+- Cannot handle unstructured data, so advanced analytics on raw data isn't possible.
+- **Vertically scalable** (scale-up), but not designed for horizontal scaling.
+- If load increases, scaling requires expensive and complex hardware upgrades.
+- Not ideal for handling very large or growing volumes of data.
+- Supports **ACID transactions** and **DML operations** (INSERT, UPDATE, DELETE).
+
+Data Lake (DL)
+====================
+- Supports **structured**, **semi-structured**, and **unstructured** data.
+- Highly scalable — both **horizontally and vertically**.
+- Built on cloud storage like **Azure Data Lake (ADLS)**, **Amazon S3**, **GCP Buckets**.
+- Mainly stores raw data; for analytics, data often needs to be moved to a Data Warehouse.
+- **Does not support ACID or DML operations** by default (without Delta Lake).
+- Ideal for storing large volumes of data, but not for reliable querying or transactional updates.
+
+Data Lakehouse (DLH = DW + DL)
+===============================
+- Combines the best of both **Data Lake** and **Data Warehouse**.
+- Solves DW's limitations with unstructured data and DL's lack of reliability.
+- Supports all file formats (structured + unstructured).
+- Analysts and data scientists can directly run queries and analytics on stored data.
+- Tables are stored as files (e.g., Parquet), but can be queried using SQL.
+- By default, Spark tables **do not support row-level DML** unless using Delta Lake.
+- Requires Delta for transactional capabilities (e.g., UPDATE, DELETE, MERGE).
+
+Delta Lake
+=============
+- Delta Lake is a **storage layer** that adds reliability to Data Lakes.
+- Built on top of **Parquet format**, it brings **ACID transactions** and **data versioning**.
+- Allows **INSERT, UPDATE, DELETE** operations on large datasets.
+- Enables **schema enforcement**, **schema evolution**, and **time travel** (querying old versions).
+- With Delta Lake, your Data Lake becomes a fully functional **Lakehouse**.
