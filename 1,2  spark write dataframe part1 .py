@@ -180,3 +180,99 @@ spark.sql("DELETE FROM T1 WHERE region = 'Asia'")  ✅ (Works)
 # - Schema enforcement
 # - Merge (UPSERT) operations
 
+
+
+
+
+
+
+
+
+
+
+
+
+Spark Execution Architecture: RDD, DataFrame, Spark SQL & Metastore
+====================================================================
+
+1️⃣ Evolution Overview
+-----------------------
+- Spark started with RDD (Resilient Distributed Dataset), a low-level API for distributed processing.
+- Then came DataFrames, offering a simpler, optimized way to work with structured data.
+- Later, Spark SQL was introduced, allowing SQL queries over structured data using DataFrames.
+
+💡 Key Point:
+- Whether you write code using RDD, DataFrame API, or Spark SQL — it all gets converted into RDDs during execution.
+- DataFrame and Spark SQL have the **same performance**, as they share the same execution engine and optimizer.
+
+Example:
+---------
+# Using DataFrame API
+df.select("name").filter("age > 25")
+
+# Using Spark SQL
+spark.sql("SELECT name FROM table WHERE age > 25")
+
+→ Both go through Catalyst optimizer and result in the same physical plan using RDDs.
+
+2️⃣ Architecture Flow (Visualized in Text)
+-------------------------------------------
+            +----------------------+
+            |   Spark SQL / DF API |
+            +----------+-----------+
+                       |
+                       v
+            +----------------------+
+            |  Catalyst Optimizer  |
+            +----------+-----------+
+                       |
+                       v
+            +----------------------+
+            |     Logical Plan     |
+            +----------+-----------+
+                       |
+                       v
+            +----------------------+
+            |     Physical Plan    |
+            +----------+-----------+
+                       |
+                       v
+            +----------------------+
+            |     RDD Execution    |
+            +----------------------+
+
+✅ End Result: No matter what API you use, everything is executed as optimized RDDs.
+
+3️⃣ Metastore in Spark (Interview Key Point)
+============================================
+
+- Spark includes a built-in **metastore**, which by default uses the **Derby database**.
+- The metastore stores **metadata** about managed tables, such as:
+  - Table name
+  - Column names and data types
+  - File format (e.g., Parquet, Delta)
+  - Table location on disk
+
+🗂️ Example: Saving a Table
+---------------------------
+df.write.mode("overwrite").saveAsTable("sales_data")
+
+What happens:
+- Data files are saved to: /user/hive/warehouse/sales_data/
+- Table metadata is saved in the metastore
+
+💡 This allows querying the files as if they are database tables:
+spark.sql("SELECT * FROM sales_data").show()
+
+4️⃣ Summary for Interview
+==========================
+- Spark started with RDDs, then added DataFrames, and finally Spark SQL.
+- DataFrame and SQL queries both compile into the same optimized RDD-based execution plan.
+- Spark includes a **metastore** (Derby by default) that stores metadata about tables.
+- Tables saved with saveAsTable() can be queried like database tables because of the metastore.
+- Spark's optimizer (Catalyst) and execution engine (Tungsten) ensure high performance for both SQL and DataFrame APIs.
+
+✅ Bonus:
+- In Databricks and modern Spark setups, the metastore is often replaced with Hive or Unity Catalog for enterprise-grade metadata handling.
+
+
