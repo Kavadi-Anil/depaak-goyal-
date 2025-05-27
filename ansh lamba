@@ -1,0 +1,258 @@
+ 55 spark streamimg auto loader 
+======================================
+
+
+
+
+
+ansh lamba
+===========
+ 
+
+
+from pyspark.sql imoprt sparksession 
+ 
+
+spark   
+
+
+
+
+ scanning optimization
+============================
+  
+turn of aqe 
+
+
+spark.conf.set("spark.sql.adaptive.enableed",false)
+
+spark.conf.set("spark.sql.adaptive.enableed") 
+
+
+
+
+
+from pyspark.sql.fuctions import *
+
+
+df=spark.read.fromat("csv")\
+    .option("inferschema",true)\
+     .option("header",true)\
+     .load("location")
+ 
+
+spark creates default paritions size and each parrtitions  which is 128 mb  
+
+so the default size partition is 128Mb
+
+df.rdd.getnumpartitions()  
+it will give u the number of partitions 
+
+
+
+ 
+
+we can change the default partition size to 128Kb 
+spark.conf.set("spark.sql.files.maxpartitionBytes",131072) 
+
+noe read the data frame again 
+
+df=spark.read.fromat("csv")\
+    .option("inferschema",true)\
+     .option("header",true)\
+     .load("location")
+
+total size is 850Kb 
+
+
+
+now chekc the number of partitions 
+
+df.rddgetNumpartition()
+7 
+
+
+ 
+change the default partitions to 128Mb 
+ 
+we can create parittions 
+
+df=df.reparittions(10) 
+
+now u will have the 10 paritioons on single file 
+
+
+to check in which parition have what data 
+like which rows has in whih partitions  
+
+df.with column( "partitio_id ",spark_partition_id() ).display() 
+
+
+df.write.formate("parquet")\
+.mode("append")\
+.option("path","location").
+save()
+
+now in dbsfs there will be 10 partitions 
+
+df_new= spark.read.format("parquet")\
+.load("location") 
+
+df_new.display()
+
+to check how many parition it read ..we can see that by
+
+click on job 15 (last one)
+ go to sql datafram 
+click on df_new.display() 
+youll see dag 
+and click on scan parquet 
+ youll see  number of files read =10 
+
+filter and cfeating new dataframe 
+
+df_new=df_new.filter(col("outlet_location_type")==tier 1 )
+
+df_new.display() 
+
+now this reads only 2K+ records out of 8.5K records 
+ but  number of files read is still 10  which means it is niot optimized  
+
+bcz the  records are randomly paritions accross the 10 partitions 
+
+
+so we need to parition the data based on column based name oulte_location_type 
+
+so that filter on these column will read less number of partitions 
+
+
+
+
+  scanning optimization 
+============================
+df.write.formate("parquet")\
+   .mode("append")\
+.partititonBy("oulet-location_type")\
+.option("path',location)\
+.save() 
+
+now this will create partitons based on the column name oulet-location_type 
+tier1 and tier 2 and tier 3  
+there will be 3 files based on tier 1 and tier 2 and tier 3  and inside that each file 
+there will be 10 partitions bcz we already writing on dataframe which has 10 partitions 
+
+
+df_new=df_new.filter(col("outlet_location_type")==tier 1 ) 
+now this will read only 
+10 files which are less ion sizebut not all 8.5k all records '
+
+so conclusion is if u are tering to filter column based on columns 
+then create parttitions based on that colums in order to read less partition 
+while reading on filtering quary 
+
+
+join opttimization
+===================
+fact table --->1gb ---->8 partitions
+dim table--->1mb ------>1partitions 
+
+after joins there will be 200 partitions 
+p1,p2.....p200 
+where each paertition p1, p2...p200 contains both fact table and dim table joined together 
+and these partition shuffled across each executor   
+so this shuffling happned during the join operation
+
+but we can avoid shuffling during join which means shuffle it before the join operation 
+so that join operation can be faster 
+
+
+broadcast join 
+========================
+when u have the bigger table fact table =1GB 
+and smaller table dim table =1Mb 
+then bigger table will be partition acroos all the all executor 
+and since the dim table is smaller in size then entire dim table will be partitioned acroos the 
+all executos to avoid the shuffling 
+
+code 
+========
+simple join 
+============
+df=df_transaction.join(df_countries,df_transactions[country_code]==df_countris[country_code],"inner") 
+broadacst join
+==============
+
+df=df_transaction.join(broadcast(df_countries),df_transactions[country_code]==df_countris[country_code],"inner") 
+
+ spark sql hints 
+============
+
+df_transaction.createorreplacetempvire("trasaction")
+df_coutries.createorreplacetempvire("countris")
+
+
+
+
+cashing and persisting
+======================== 
+
+cache
+====
+df1=csv from dbfs  storage location (disk)
+df2=df1+tranfromation 
+df3=df2+tranfromation 
+df3.display 
+since to excefute df3 dataframe df1 has to read from dbfs again and again if u are 
+using df1 agina and agin 
+ 
+so reading from disk is slow 
+so instead cashe it 
+it will be faster  
+
+df.persist(storagelevel.disk_and_memeory)=df.cahce 
+
+
+
+df=spark.read.fromate("csv")\
+.option("inferschema",true)\
+.option("header",true)\
+.load("\location")\
+.cache() 
+
+now this will do cachinng  
+
+df2=df.filter(col(type==teri1)) 
+df.display() and run 
+click on the jon and click on view 
+and click on sql dataframe gragh and click on click on in memory table scan to see how many rows
+it read 
+and 
+click on stoarge after clicking view 
+u can se your memeory cached  
+
+df.unpsersist() 
+
+which remove the cahce   
+
+
+dynamic resoouce allocation
+==========================
+its like devloper requesting resource for owner 
+
+if u are using static resource alloacation then it can used by u only not other 
+but whenit comes to 
+dynamic resource allocation
+========================== 
+u can max executor when your executore are not working then  
+
+
+
+ 
+(aqe)adaptive quary execution
+============================
+
+dyamically coalesce the parittions 
+optimizing the join stargergy during the runtime 
+optimizing the skeness
+
+
